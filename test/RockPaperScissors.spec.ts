@@ -45,11 +45,8 @@ describe("RockPaperScissors Contract", () => {
 
     describe("Init", async() => {
         it("deploys", async() => {
-            expect(contract)
-                .to.be.ok
-            
-            expect(mockDai)
-                .to.be.ok
+            expect(contract).to.be.ok
+            expect(mockDai).to.be.ok
         })
 
         it("minted mockDai correctly", async() => {
@@ -109,35 +106,76 @@ describe("RockPaperScissors Contract", () => {
         })
 
         it("should create a game and update gameId", async() => {
-            res = await contract.gameId()
+            expect(await contract.gameId())
+                .to.eq(0)
 
             let betAmount = ethers.utils.parseEther("5")
+            await contract.createGame(betAmount)
 
-            expect(await contract.createGame(betAmount))
-                .to.be.ok
-
-            let newResult = await contract.gameId()
-
-            expect(Number(newResult))
-                .to.be.greaterThan(Number(res))
+            expect(await contract.gameId())
+                .to.eq(1)
         })
 
         it("should create struct with correct data", async() => {
             res = await contract.games(0)
 
             // check address
-            expect(res[0])
-                .to.eq(alice.address)
+            expect(res[0]).to.eq(alice.address)
 
             // check gameId
-            expect(res[5])
-                .to.eq(0)
+            expect(res[5]).to.eq(0)
 
             // check betAmount
-            expect(res[6])
-                .to.eq(ethers.utils.parseEther("5"))
+            expect(res[6]).to.eq(ethers.utils.parseEther("5"))
         })
 
+        it("should update global variables", async() => {
+            expect(await contract.gameId())
+                .to.eq(1)
+            
+            expect(await contract.openGame(0))
+                .to.eq(true)
+        })
+    })
+
+    describe("discardCreatedGame function", async() => {
+        it("should remove openGame status and return funds", async() => {
+            await contract.discardCreatedGame(0)
+
+            expect(await contract.openGame(0))
+                .to.eq(false)
+
+            expect(await contract.userBalance(alice.address))
+                .to.eq(ethers.utils.parseEther("24999"))
+        })
+    })
+
+    describe("joinGame function", async() => {
+        it("should join open game and update variables", async() => {
+            let betAmount = ethers.utils.parseEther("5")
+            await contract.createGame(betAmount)
+
+            await mockDai.connect(bob).approve(contract.address, daiAmount) 
+            await contract.connect(bob).deposit(daiAmount)
+            await contract.connect(bob).joinGame(1)
+
+            expect(await contract.openGame(1))
+                .to.eq(false)
+
+            res = await contract.games(1)
+            expect(res[1])
+                .to.eq(bob.address)
+        })
+
+        it("should update bob's balance", async() => {
+            expect(await contract.userBalance(bob.address))
+                .to.eq(ethers.utils.parseEther("24995"))
+        })
+
+        it("should revert joining closed game", async() => {
+            await expect(contract.connect(bob).joinGame(1))
+                .to.be.revertedWith("Either game is closed or insufficient funds")
+        })
     })
 
 })

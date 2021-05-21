@@ -54,6 +54,7 @@ contract RockPaperScissors {
             "Game not open and/or wrong gameId"
         );
         openGame[_gameId] = false;
+        userBalance[msg.sender] += games[_gameId].betAmount;
     }
 
     function deposit(uint amount) public {
