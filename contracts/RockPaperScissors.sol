@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 /// @title Rock, paper, scissors game played with ERC20 tokens
 /// @author Andrew Fleming
 /// @notice Use this contract to create a rock, paper, scissors factory
-/// @dev Player moves are not encoded and can be seen on-chain
+/// @dev Player moves are not encoded
 contract RockPaperScissors {
 
     struct Game {
@@ -23,7 +23,7 @@ contract RockPaperScissors {
     mapping(address => uint256) public userBalance;
     // gameId => openGame
     mapping(uint256 => bool) public openGame;
-    // p1Choice => p2Choice => isP1Winner
+    // p1Move => p2Move => isP1Winner
     mapping(uint8 => mapping(uint8 => bool)) public isP1Winner;
     
     uint256 public gameId; // Game identifier
@@ -81,6 +81,11 @@ contract RockPaperScissors {
     /// @param _choice ghghg
     function sendMove(uint256 _gameId, uint8 _choice) public {
         Game storage game = games[_gameId];
+        require(
+            msg.sender == game.playerOne && game.p1Move == 0 ||
+            msg.sender == game.playerTwo && game.p2Move == 0,
+            "Either incorrect gameId or move already sent"
+        );
         if(msg.sender == game.playerOne){
             game.p1Move = _choice;
         } else {
@@ -89,15 +94,16 @@ contract RockPaperScissors {
 
         if(game.startTime == 0){
             game.startTime = SafeCast.toUint32(block.timestamp);
-        } else {
+\        } else {
+            require(game.startTime + 300 >= block.timestamp, "Timed out");
             finishGame(_gameId);
         }
     }
 
-    /// @notice Determines the outcome and updates enrolled user balances
+    /// @notice Determines the outcome and updates participating users' balances
     /// @dev The first conditional statement checks if the game is a tie. If not, the contract inserts
     ///      the players' moves into the isP1Winner mapping. If it matches one of the combinations hardcoded
-    ///      in the constructor, player one wins.
+    ///      in the constructor, player one wins
     /// @param _gameId An unsigned integer used to identify specific a game
     function finishGame(uint _gameId) private {
         Game memory game = games[_gameId];
@@ -106,11 +112,12 @@ contract RockPaperScissors {
                 userBalance[game.playerTwo] += game.betAmount;
         } else {
             bool res = isP1Winner[game.p1Move][game.p2Move];
+            uint256 winAmount = game.betAmount * 2;
 
             if(res == true) {
-                userBalance[game.playerOne] += game.betAmount * 2;
+                userBalance[game.playerOne] += winAmount;
             } else {
-                userBalance[game.playerTwo] += game.betAmount * 2;
+                userBalance[game.playerTwo] += winAmount;
             }
         }
     }
@@ -131,17 +138,21 @@ contract RockPaperScissors {
     /// @notice
     /// @dev
     /// @param _gameId An unsigned integer used to identify specific a game
-    function dispute(uint _gameId) public {
+    function timeOut(uint _gameId) public {
         Game memory game = games[_gameId];
         require(
-            game.startTime + 300 <= block.timestamp && // Greater than 5 minutes
+            game.startTime + 300 < block.timestamp && // Greater than 5 minutes
             msg.sender == game.playerOne || 
-            msg.sender == game.playerTwo
+            msg.sender == game.playerTwo,
+            "Either game did not time out or player not in game"
         );
         uint256 delayFee = game.betAmount / 5;
-        userBalance[msg.sender] += game.betAmount + delayFee;
-        if(msg.sender == game.playerOne){
+        if(game.p1Move == 0){
+            userBalance[game.playerOne] += delayFee * 4;
+            userBalance[game.playerTwo] += game.betAmount + delayFee;
+        } else {
             userBalance[game.playerTwo] += delayFee * 4;
+            userBalance[game.playerOne] += game.betAmount + delayFee;
         }
     }
 
