@@ -191,54 +191,29 @@ describe("RockPaperScissors Contract", () => {
             expect(res[2]).to.eq(1)
 
             res = await contract.games(1)
-            expect(res[4]).to.be.greaterThan(0)
+            let formatRes =  Number(res[4].toString())
+            expect(formatRes).to.be.greaterThan(0)
+        })
+
+        it("should revert sendMove to a discarded game", async() => {
+            await expect(contract.sendMove(0, 1))
+                .to.be.revertedWith("Either incorrect gameId, move already sent, or game finished")
         })
 
         it("should revert function call from non-player", async() => {
             await expect(contract.connect(carol).sendMove(1, 3))
-                .to.be.revertedWith("Either incorrect gameId or move already sent")
+                .to.be.revertedWith("Either incorrect gameId, move already sent, or game finished")
         })
 
         it("should revert from player resending a move", async() => {
             await expect(contract.sendMove(1, 3))
-                .to.be.revertedWith("Either incorrect gameId or move already sent")
+                .to.be.revertedWith("Either incorrect gameId, move already sent, or game finished")
         })
 
         it("should revert from timeout", async() => {
             await time.increase(300)
             await expect(contract.connect(bob).sendMove(1, 3))
                 .to.be.revertedWith("Timed out")
-        })
-    })
-
-    describe("Timeout function", async() => {
-        it("should revert when non-player calls function", async() => {
-            await expect(contract.connect(carol).timeOut(1))
-                .to.be.revertedWith("Either game did not time out or player not in game")
-        })
-
-        it("should update balances with delayFee", async() => {
-            let aliceBalance = await contract.userBalance(alice.address)
-            let bobBalance = await contract.userBalance(bob.address)
-
-            // Baseline check
-            expect(aliceBalance.toString())
-                .to.eq(ethers.utils.parseEther("24994"))
-
-            expect(bobBalance.toString())
-                .to.eq(ethers.utils.parseEther("24995"))
-
-            await contract.timeOut(1)
-
-            aliceBalance = await contract.userBalance(alice.address)
-            bobBalance = await contract.userBalance(bob.address)
-
-            // Updated balance check
-            expect(aliceBalance.toString())
-                .to.eq(ethers.utils.parseEther("25000"))
-
-            expect(bobBalance.toString())
-                .to.eq(ethers.utils.parseEther("24999"))
         })
     })
 })
@@ -252,6 +227,7 @@ describe("Starting from deployment", () => {
 
     let alice: SignerWithAddress
     let bob: SignerWithAddress
+    let carol: SignerWithAddress
 
     const daiAmount: BigNumber = ethers.utils.parseEther("25000");
 
@@ -259,7 +235,7 @@ describe("Starting from deployment", () => {
         const MockDai = await ethers.getContractFactory("MockDai");
         const RockPaperScissors = await ethers.getContractFactory("RockPaperScissors");
 
-        [alice, bob] = await ethers.getSigners();
+        [alice, bob, carol] = await ethers.getSigners();
 
         mockDai = await MockDai.deploy()
         contract = await RockPaperScissors.deploy(mockDai.address)
@@ -270,10 +246,13 @@ describe("Starting from deployment", () => {
         await Promise.all([
             mockDai.mint(alice.address, daiAmount),
             mockDai.mint(bob.address, daiAmount),
+            mockDai.mint(carol.address, daiAmount),
             mockDai.approve(contract.address, daiAmount),
             mockDai.connect(bob).approve(contract.address, daiAmount),
+            mockDai.connect(carol).approve(contract.address, daiAmount),
             contract.deposit(daiAmount),
-            contract.connect(bob).deposit(daiAmount)
+            contract.connect(bob).deposit(daiAmount),
+            contract.connect(carol).deposit(daiAmount)
         ])
 
         let betAmount = ethers.utils.parseEther("10")
@@ -282,12 +261,80 @@ describe("Starting from deployment", () => {
     })
 
     describe("calculates correct outcomes for finishGame function", async() => {
-        it("rock vs rock", async() => {
-            await contract.sendMove(0, 1)
+        it("checks isP1Winner mapping logic", async() => {
+            // True
+            expect(await contract.isP1Winner(1, 3)).to.eq(true)
+            expect(await contract.isP1Winner(2, 1)).to.eq(true)
+            expect(await contract.isP1Winner(3, 2)).to.eq(true)
+
+            // False
+            expect(await contract.isP1Winner(3, 1)).to.eq(false)
+            expect(await contract.isP1Winner(1, 2)).to.eq(false)
+            expect(await contract.isP1Winner(2, 3)).to.eq(false)
+
+            // Draw => False
+            expect(await contract.isP1Winner(1, 1)).to.eq(false)
+            expect(await contract.isP1Winner(2, 2)).to.eq(false)
+            expect(await contract.isP1Winner(3, 3)).to.eq(false)
         })
 
-        it("calculates gg", async() => {
+        it("rock vs rock", async() => {
             await contract.sendMove(0, 1)
+
+            expect(await contract.connect(bob).sendMove(0, 1))
+                .to.emit(contract, 'Outcome')
+                .withArgs(0, "0x0000000000000000000000000000000000000000");
+        })
+
+        it("rock vs paper", async() => {
+            await contract.sendMove(0, 1)
+
+            expect(await contract.connect(bob).sendMove(0, 2))
+                .to.emit(contract, 'Outcome')
+                .withArgs(0, bob.address);
+        })
+
+        it("scissors vs rock", async() => {
+            await contract.sendMove(0, 3)
+
+            expect(await contract.connect(bob).sendMove(0, 2))
+                .to.emit(contract, "Outcome")
+                .withArgs(0, alice.address)
+        })
+    })
+
+    describe("Timeout function", async() => {
+        it("should update balances with delayFee", async() => {
+            await contract.sendMove(0, 1)
+            await time.increase(301)
+            await contract.timeOut(0)
+
+            expect(await contract.userBalance(alice.address))
+                .to.eq(ethers.utils.parseEther("25002"))
+
+            expect(await contract.userBalance(bob.address))
+                .to.eq(ethers.utils.parseEther("24998"))
+        })
+
+        it("should revert when non-player calls function", async() => {
+            await contract.sendMove(0, 1)
+            await time.increase(301)
+            await expect(contract.connect(carol).timeOut(0))
+                .to.be.revertedWith("Either player not in game or game is finished")
+        })
+
+        it("should revert when not enough time elapsed", async() => {
+           await contract.sendMove(0, 1)
+           await expect(contract.timeOut(0))
+                .to.be.revertedWith("Time not exceeded")
+        })
+
+        it("should revert when game is finished", async() => {
+            await contract.sendMove(0, 1)
+            await time.increase(301)
+            await contract.timeOut(0)
+            await expect(contract.timeOut(0))
+                .to.be.revertedWith("Either player not in game or game is finished")
         })
     })
 })
