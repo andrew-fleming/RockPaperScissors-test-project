@@ -52,7 +52,8 @@ contract RockPaperScissors {
     ///      variable gameId increases by one
     /// @param _betAmount The cost to play(can be zero) as chosen by the caller
     function createGame(uint _betAmount) public {
-        require(userBalance[msg.sender] >= _betAmount, 
+        require(
+            userBalance[msg.sender] >= _betAmount, 
             "Insufficient funds"
         );
         Game memory game;
@@ -194,7 +195,10 @@ contract RockPaperScissors {
     ///      helps enforce the timeout fee for nonresponsive players
     /// @param amount The quantity of DAI to send
     function deposit(uint amount) public {
-        require(daiToken.balanceOf(msg.sender) >= amount, "Insufficient funds");
+        require(
+            daiToken.balanceOf(msg.sender) >= amount, 
+            "Insufficient funds"
+        );
         uint256 toTransfer = amount;
         daiToken.transferFrom(msg.sender, address(this), toTransfer);
         userBalance[msg.sender] += toTransfer;
@@ -204,7 +208,10 @@ contract RockPaperScissors {
     /// @dev Updates userBalance mapping and sends a transaction with the amount to the user
     /// @param amount The quantity of DAI for the user to receive
     function withdraw(uint amount) public {
-        require(userBalance[msg.sender] >= amount, "Insufficient funds");
+        require(
+            userBalance[msg.sender] >= amount, 
+            "Insufficient funds"
+        );
         userBalance[msg.sender] -= amount;
         daiToken.transfer(msg.sender, amount);
     }
