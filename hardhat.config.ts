@@ -1,6 +1,6 @@
 import { task } from "hardhat/config";
 import "@nomiclabs/hardhat-waffle";
-import "@nomiclabs/hardhat-web3"; // Specifically for OpenZeppelin's test-helpers import
+import "@nomiclabs/hardhat-web3"; // Specifically, for OpenZeppelin's test-helpers import
 
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html

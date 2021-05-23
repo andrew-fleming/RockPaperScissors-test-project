@@ -85,9 +85,9 @@ describe("RockPaperScissors Contract", () => {
                 .to.eq(amt)
         })
 
-        it("should revert", async() => {
+        it("should revert withdrawal without requisite funds", async() => {
             await expect(contract.withdraw(daiAmount))
-                .to.be.reverted
+                .to.be.revertedWith("Insufficient funds")
         })
 
         it("should update balance", async() => {
@@ -126,7 +126,7 @@ describe("RockPaperScissors Contract", () => {
             expect(res[6]).to.eq(ethers.utils.parseEther("5"))
         })
 
-        it("should update global variables", async() => {
+        it("should update state variables", async() => {
             expect(await contract.gameId())
                 .to.eq(1)
             
@@ -147,8 +147,7 @@ describe("RockPaperScissors Contract", () => {
         })
 
         it("should revert when different player calls discardCreatedGame", async() => {
-            let betAmount = ethers.utils.parseEther("5")
-            await contract.createGame(betAmount)
+            await contract.createGame(ethers.utils.parseEther("5"))
 
             await expect(contract.connect(bob).discardCreatedGame(1))
                 .to.be.reverted
@@ -167,9 +166,7 @@ describe("RockPaperScissors Contract", () => {
             res = await contract.games(1)
             expect(res[1])
                 .to.eq(bob.address)
-        })
 
-        it("should update bob's balance", async() => {
             expect(await contract.userBalance(bob.address))
                 .to.eq(ethers.utils.parseEther("24995"))
         })
@@ -184,13 +181,15 @@ describe("RockPaperScissors Contract", () => {
 
     describe("sendMove function", async() => {
         it("should assign move and timestamp", async() => {
-            // Params => gameId && move (1 for ROCK)
+            // Params => gameId, move (1 for ROCK)
             await contract.sendMove(1, 1)
 
             res = await contract.games(1)
+            // p1Move
             expect(res[2]).to.eq(1)
 
             res = await contract.games(1)
+            // startTime
             let formatRes =  Number(res[4].toString())
             expect(formatRes).to.be.greaterThan(0)
         })
@@ -220,8 +219,6 @@ describe("RockPaperScissors Contract", () => {
 
 describe("Starting from deployment", () => {
 
-    let res: any
-
     let contract: Contract
     let mockDai: Contract
 
@@ -241,7 +238,7 @@ describe("Starting from deployment", () => {
         contract = await RockPaperScissors.deploy(mockDai.address)
 
         /**
-         * Mint, approve, and deposit mockDai for alice and bob
+         * Mint, approve, and deposit mockDai for alice, bob, and carol
          */
         await Promise.all([
             mockDai.mint(alice.address, daiAmount),
@@ -304,7 +301,7 @@ describe("Starting from deployment", () => {
     })
 
     describe("Timeout function", async() => {
-        it("should update balances with delayFee", async() => {
+        it("should update balances with 20% delayFee", async() => {
             await contract.sendMove(0, 1)
             await time.increase(301)
             await contract.timeOut(0)
@@ -323,8 +320,9 @@ describe("Starting from deployment", () => {
                 .to.be.revertedWith("Either player not in game or game is finished")
         })
 
-        it("should revert when not enough time elapsed", async() => {
+        it("should revert when not enough time elapses", async() => {
            await contract.sendMove(0, 1)
+           await time.increase(200)
            await expect(contract.timeOut(0))
                 .to.be.revertedWith("Time not exceeded")
         })
