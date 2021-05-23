@@ -73,7 +73,7 @@ contract RockPaperScissors {
     ///      bet amount from their balance. This incentivizes users to participate in the games
     ///      they join. The openGame mapping is assigned to false. This prevents other users from
     ///      overriding the initial joiner as checked by the require statement
-    /// @param _gameId An unsigned integer used to identify specific a game
+    /// @param _gameId An unsigned integer used to identify a specific game
     function joinGame(uint _gameId) public {
         require(
             openGame[_gameId] == true &&
@@ -124,7 +124,7 @@ contract RockPaperScissors {
     ///      the players' moves into the isP1Winner mapping. If it matches one of the combinations hardcoded
     ///      in the constructor, player one's userBalance increases by 2x the bet. Otherwise,
     ///      player two's balance is updated
-    /// @param _gameId An unsigned integer used to identify specific a game
+    /// @param _gameId An unsigned integer used to identify a specific game
     function finishGame(uint _gameId) private {
         Game memory game = games[_gameId];
         if(game.p1Move == game.p2Move){
@@ -151,7 +151,7 @@ contract RockPaperScissors {
     ///      Further, the user receives their bet amount back in the balance. Finally, the gameFinished
     ///      mapping updates to true; as, this prevents users from calling the sendMove function
     ///      to the discarded game's gameId
-    /// @param _gameId An unsigned integer used to identify specific a game
+    /// @param _gameId An unsigned integer used to identify a specific game
     function discardCreatedGame(uint256 _gameId) public {
         require(
             openGame[_gameId] == true &&
@@ -168,7 +168,7 @@ contract RockPaperScissors {
     ///         receives 80% of his/her bet and the active player receives 120%
     /// @dev Despite the potential for a 15 second discrepancy in the timestamp, 300 seconds
     ///      (5 minutes) seems reasonable for this instance
-    /// @param _gameId An unsigned integer used to identify specific a game
+    /// @param _gameId An unsigned integer used to identify a specific game
     function timeOut(uint _gameId) public {
         Game memory game = games[_gameId];
         require(
