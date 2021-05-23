@@ -189,7 +189,7 @@ contract RockPaperScissors {
     }
 
     /// @notice Sends the requested DAI amount to the contract which serves as an enrollment to play
-    /// @dev Making one ERC20 transaction to play reduces gas fees for the user and allows the user to
+    /// @dev Making one ERC20 transaction to play reduces gas fees for the user and allows the user
     ///      to bet with their winnings as instructed. Further, the contract's custody of the user's funds
     ///      helps enforce the timeout fee for nonresponsive players
     /// @param amount The quantity of DAI to send
